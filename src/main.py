@@ -49,56 +49,53 @@ def main(page: ft.Page):
         on_change=handle_drawer_change,
     )
     
-    # Create coordinate system using LineChart for zoom/pan
+    # Create coordinate system using Matplotlib for better visualization
+    import matplotlib.pyplot as plt
+    import numpy as np
     import flet_charts as fch
     
-    # Create grid lines data series
-    grid_lines = []
+    # Create figure and axis
+    fig, ax = plt.subplots(figsize=(8, 6))
     
-    # Vertical grid lines
-    for i in range(-10, 11):
-        grid_lines.append(
-            fch.LineChartData(
-                stroke_width=1,
-                color=ft.Colors.GREY_300,
-                curved=False,
-                points=[
-                    fch.LineChartDataPoint(i, -10),
-                    fch.LineChartDataPoint(i, 10),
-                ],
-            )
-        )
+    # Set axis limits
+    ax.set_xlim(-10, 10)
+    ax.set_ylim(-10, 10)
     
-    # Horizontal grid lines
-    for i in range(-10, 11):
-        grid_lines.append(
-            fch.LineChartData(
-                stroke_width=1,
-                color=ft.Colors.GREY_300,
-                curved=False,
-                points=[
-                    fch.LineChartDataPoint(-10, i),
-                    fch.LineChartDataPoint(10, i),
-                ],
-            )
-        )
+    # Add grid
+    ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='lightgray')
     
-    # Create coordinate chart
-    coordinate_chart = fch.LineChart(
+    # Add axes with arrows using the recommended method
+    # Hide the default top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    # Add arrows to the left and bottom spines
+    ax.spines['left'].set_position(('data', 0))
+    ax.spines['bottom'].set_position(('data', 0))
+    
+    # Add arrow markers at the exact tips of the axes
+    # X-axis arrow at the rightmost tip (x=10, y=0)
+    ax.plot(10, 0, ">k", markersize=8, clip_on=False)
+    # Y-axis arrow at the topmost tip (x=0, y=10)
+    ax.plot(0, 10, "^k", markersize=8, clip_on=False)
+    
+    # Set axis labels at the tips
+    # X-axis label at the rightmost tip
+    ax.text(10, -1.5, 'x', fontsize=12, ha='center', va='top')
+    # Y-axis label at the topmost tip
+    ax.text(1.5, 10, 'y', fontsize=12, ha='left', va='center')
+    
+    # Set tick labels
+    ax.set_xticks(np.arange(-10, 11, 2))
+    ax.set_yticks(np.arange(-10, 11, 2))
+    
+    # Add origin label
+    ax.text(0.1, 0.1, '0', transform=ax.transAxes, fontsize=10, verticalalignment='bottom')
+    
+    # Create coordinate chart using Matplotlib
+    coordinate_chart = fch.MatplotlibChart(
+        figure=fig,
         expand=True,
-        data_series=grid_lines,
-        min_x=-10,
-        max_x=10,
-        min_y=-10,
-        max_y=10,
-        border=ft.Border.all(2, ft.Colors.BLACK),
-        horizontal_grid_lines=fch.ChartGridLines(
-            interval=1, color=ft.Colors.GREY_300, width=1
-        ),
-        vertical_grid_lines=fch.ChartGridLines(
-            interval=1, color=ft.Colors.GREY_300, width=1
-        ),
-        interactive=True,
     )
     
     coordinate_container = ft.Container(
