@@ -123,23 +123,8 @@ def main(page: ft.Page):
     # The (0,0) in `xy` is the data coordinate, and `xytext` is an offset for positioning
     zero_annotation = ax.annotate('0', xy=(0, 0), xytext=(-5, -10), textcoords='offset points', ha='right', va='top')
     
-    # Add major grid lines (optional, for graph paper look)
-    ax.grid(True, color='gray', linestyle='--', linewidth=0.5, which='major')
-    
-    # Add minor grid lines for more detailed grid
-    ax.grid(True, color='lightgray', linestyle=':', linewidth=0.3, which='minor')
-    
-    # Set minor ticks for the grid
-    ax.set_xticks(np.arange(-10, 11, 1), minor=True)
-    ax.set_yticks(np.arange(-10, 11, 1), minor=True)
-    
-    # Draw quadratic function y = x^2
-    # Generate x values within current view range
-    x_values = np.linspace(xlim_min, xlim_max, 500)
-    y_values = x_values ** 2
-    
-    # Plot the quadratic function
-    quadratic_plot, = ax.plot(x_values, y_values, 'r-', linewidth=2, label='y = x²')
+    # Add grid lines (optional, for graph paper look)
+    ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
     
     # Create coordinate chart using Matplotlib
     coordinate_chart = fch.MatplotlibChart(
@@ -149,8 +134,8 @@ def main(page: ft.Page):
     
     coordinate_container = ft.Container(
         content=coordinate_chart,
-        width=page.width,
-        height=page.height,
+        width=800,
+        height=600,
         bgcolor=ft.Colors.WHITE,
         border=ft.Border.all(1, ft.Colors.GREY_300),
     )
@@ -177,8 +162,8 @@ def main(page: ft.Page):
         
         # Convert pixel movement to data coordinates
         # Canvas is 800x600. Positive dx right means move the view right (shift limits left)
-        shift_x = -(dx / page.width) * data_range_x
-        shift_y = (dy / page.height) * data_range_y  # Y is inverted
+        shift_x = -(dx / 800) * data_range_x
+        shift_y = (dy / 600) * data_range_y  # Y is inverted
         
         # Update limits
         xlim_min += shift_x
@@ -229,10 +214,6 @@ def main(page: ft.Page):
         ax.set_xticks(new_xticks)
         ax.set_yticks(new_yticks)
         
-        # Update minor ticks
-        ax.set_xticks(np.arange(x_tick_min, x_tick_max + 1, 1), minor=True)
-        ax.set_yticks(np.arange(y_tick_min, y_tick_max + 1, 1), minor=True)
-        
         # Format tick labels - hide 0 from ticks, we'll add it separately
         x_labels = [f'{int(x)}' if x != 0 else '' for x in new_xticks]
         y_labels = [f'{int(y)}' if y != 0 else '' for y in new_yticks]
@@ -243,19 +224,14 @@ def main(page: ft.Page):
         # Update '0' annotation at origin
         zero_annotation.set_position((0, 0))
         
-        # Update quadratic function plot
-        new_x_values = np.linspace(xlim_min, xlim_max, 500)
-        new_y_values = new_x_values ** 2
-        quadratic_plot.set_data(new_x_values, new_y_values)
-        
         # Force complete redraw
         fig.canvas.draw_idle()
         coordinate_chart.update()
     
     # Create transparent container for gesture detection
     transparent_container = ft.Container(
-        width=page.width,
-        height=page.height,
+        width=800,
+        height=600,
         bgcolor=ft.Colors.TRANSPARENT,
     )
     
@@ -269,8 +245,8 @@ def main(page: ft.Page):
     
     # Stack coordinate chart and transparent gesture detector
     stack = ft.Stack(
-        width=page.width,
-        height=page.height,
+        width=800,
+        height=600,
         controls=[
             coordinate_container,
             gesture_detector,
@@ -284,104 +260,6 @@ def main(page: ft.Page):
         max_scale=5.0,
         boundary_margin=ft.Margin.all(100),
     )
-    
-    # Create zoom functions for floating action buttons
-    def handle_zoom_in(e):
-        """Zoom in by decreasing the axis limits range."""
-        nonlocal xlim_min, xlim_max, ylim_min, ylim_max
-        
-        # Calculate center of current view
-        x_center = (xlim_min + xlim_max) / 2
-        y_center = (ylim_min + ylim_max) / 2
-        
-        # Reduce range by 20%
-        x_range = (xlim_max - xlim_min) * 0.4  # 80% of current range
-        y_range = (ylim_max - ylim_min) * 0.4
-        
-        xlim_min = x_center - x_range
-        xlim_max = x_center + x_range
-        ylim_min = y_center - y_range
-        ylim_max = y_center + y_range
-        
-        # Update the plot
-        update_plot_view()
-    
-    def handle_zoom_out(e):
-        """Zoom out by increasing the axis limits range."""
-        nonlocal xlim_min, xlim_max, ylim_min, ylim_max
-        
-        # Calculate center of current view
-        x_center = (xlim_min + xlim_max) / 2
-        y_center = (ylim_min + ylim_max) / 2
-        
-        # Increase range by 20%
-        x_range = (xlim_max - xlim_min) * 0.6  # 120% of current range
-        y_range = (ylim_max - ylim_min) * 0.6
-        
-        xlim_min = x_center - x_range
-        xlim_max = x_center + x_range
-        ylim_min = y_center - y_range
-        ylim_max = y_center + y_range
-        
-        # Update the plot
-        update_plot_view()
-    
-    def update_plot_view():
-        """Update the matplotlib plot with new axis limits."""
-        # Set new axis limits
-        ax.set_xlim(xlim_min, xlim_max)
-        ax.set_ylim(ylim_min, ylim_max)
-        
-        # Remove old arrows and create new ones at updated positions
-        arrows['x'].remove()
-        arrows['y'].remove()
-        
-        from matplotlib.patches import FancyArrowPatch
-        # X-arrow always ends at xlim_max (right edge) at y=0
-        x_arrow_patch_new = FancyArrowPatch((xlim_max - 0.5, 0), (xlim_max, 0),
-                                           arrowstyle='->', mutation_scale=20, color='black', lw=1.5, clip_on=False)
-        # Y-arrow always ends at ylim_max (top edge) at x=0
-        y_arrow_patch_new = FancyArrowPatch((0, ylim_max - 0.5), (0, ylim_max),
-                                           arrowstyle='->', mutation_scale=20, color='black', lw=1.5, clip_on=False)
-        ax.add_patch(x_arrow_patch_new)
-        ax.add_patch(y_arrow_patch_new)
-        
-        # Update the dictionary references
-        arrows['x'] = x_arrow_patch_new
-        arrows['y'] = y_arrow_patch_new
-        
-        # Update axis labels to stay at the arrow tips
-        x_label.set_position((xlim_max, -0.8))
-        y_label.set_position((0.8, ylim_max))
-        
-        # Update tick positions and labels
-        tick_step = 2
-        
-        # Calculate new tick positions
-        x_tick_min = np.floor(xlim_min / tick_step) * tick_step
-        x_tick_max = np.ceil(xlim_max / tick_step) * tick_step
-        new_xticks = np.arange(x_tick_min, x_tick_max + tick_step, tick_step)
-        
-        y_tick_min = np.floor(ylim_min / tick_step) * tick_step
-        y_tick_max = np.ceil(ylim_max / tick_step) * tick_step
-        new_yticks = np.arange(y_tick_min, y_tick_max + tick_step, tick_step)
-        
-        ax.set_xticks(new_xticks)
-        ax.set_yticks(new_yticks)
-        
-        # Format tick labels - hide 0 from ticks, we'll add it separately
-        x_labels = [f'{int(x)}' if x != 0 else '' for x in new_xticks]
-        y_labels = [f'{int(y)}' if y != 0 else '' for y in new_yticks]
-        
-        ax.set_xticklabels(x_labels)
-        ax.set_yticklabels(y_labels)
-        
-        # Update '0' annotation at origin
-        zero_annotation.set_position((0, 0))
-        
-        # Force complete redraw
-        fig.canvas.draw_idle()
-        coordinate_chart.update()
     
     # Create top bar
     async def handle_menu_click(e):
@@ -414,56 +292,15 @@ def main(page: ft.Page):
         border=ft.InputBorder.NONE,
     )
     
-    # Create floating action buttons for zoom control
-    fab_zoom_in = ft.FloatingActionButton(
-        icon=ft.Icons.ADD,
-        on_click=handle_zoom_in,
-        bgcolor=ft.Colors.BLUE,
-        foreground_color=ft.Colors.WHITE,
-        tooltip="Zoom In",
-    )
-    
-    fab_zoom_out = ft.FloatingActionButton(
-        icon=ft.Icons.REMOVE,
-        on_click=handle_zoom_out,
-        bgcolor=ft.Colors.BLUE,
-        foreground_color=ft.Colors.WHITE,
-        tooltip="Zoom Out",
-    )
-    
-    # Main content with floating action buttons positioned at bottom
-    # Use Stack to position FABs at bottom right and bottom left
-    coordinate_content = ft.Container(
-        expand=True,
-        content=coordinate_system,
-        padding=20,
-    )
-    
-    # Stack to hold coordinate system and floating buttons
-    content_with_fabs = ft.Stack(
-        expand=True,
-        controls=[
-            coordinate_content,
-            # Zoom In button - bottom right
-            ft.Container(
-                content=fab_zoom_in,
-                right=20,
-                bottom=20,
-            ),
-            # Zoom Out button - bottom left
-            ft.Container(
-                content=fab_zoom_out,
-                left=20,
-                bottom=20,
-            ),
-        ],
-    )
-    
     # Main content
     main_content = ft.Column(
         controls=[
             top_bar,
-            content_with_fabs,
+            ft.Container(
+                expand=True,
+                content=coordinate_system,
+                padding=20,
+            ),
         ],
         expand=True,
     )
