@@ -4,7 +4,7 @@ import flet as ft
 import flet.canvas as cv
 import numpy as np
 from typing import List
-from models import GraphState, FunctionGraph
+from graph_state import GraphState, FunctionGraph
 
 
 class CoordinateSystem(ft.Stack):
@@ -156,8 +156,21 @@ class CoordinateSystem(ft.Stack):
         shapes = []
         
         # Draw grid lines
-        grid_pen = ft.Paint(color=ft.Colors.GREY_400, stroke_width=1.5)
-        minor_grid_pen = ft.Paint(color=ft.Colors.GREY_300, stroke_width=1.2)
+        # Set colors based on dark mode
+        if self.state.dark_mode:
+            grid_pen = ft.Paint(color=ft.Colors.GREY_600, stroke_width=1.5)
+            minor_grid_pen = ft.Paint(color=ft.Colors.GREY_500, stroke_width=1.2)
+            axis_pen_color = ft.Colors.WHITE
+            tick_pen_color = ft.Colors.WHITE
+            text_color = ft.Colors.WHITE
+            background_color = ft.Colors.BLACK
+        else:
+            grid_pen = ft.Paint(color=ft.Colors.GREY_400, stroke_width=1.5)
+            minor_grid_pen = ft.Paint(color=ft.Colors.GREY_300, stroke_width=1.2)
+            axis_pen_color = ft.Colors.BLACK
+            tick_pen_color = ft.Colors.BLACK
+            text_color = ft.Colors.BLACK
+            background_color = ft.Colors.WHITE
         
         # Calculate visible range in math coordinates
         # When offset_x > 0, we're panning right, so we see more negative x values
@@ -199,7 +212,7 @@ class CoordinateSystem(ft.Stack):
                         shapes.append(cv.Line(0, sy, canvas_width, sy, minor_grid_pen))
         
         # Draw axes
-        axis_pen = ft.Paint(color=ft.Colors.BLACK, stroke_width=2)
+        axis_pen = ft.Paint(color=axis_pen_color, stroke_width=2)
         cx, cy = self.to_screen(0, 0)
         
         # X-axis
@@ -209,7 +222,7 @@ class CoordinateSystem(ft.Stack):
         
         # Draw axis arrows (at canvas edges, so they move with the axes)
         arrow_size = 10
-        arrow_paint = ft.Paint(color=ft.Colors.BLACK, stroke_width=2, 
+        arrow_paint = ft.Paint(color=axis_pen_color, stroke_width=2, 
                               style=ft.PaintingStyle.FILL)
         
         # X-axis arrow (at right edge of canvas)
@@ -239,19 +252,19 @@ class CoordinateSystem(ft.Stack):
         # Draw axis labels
         shapes.append(cv.Text(
             x_arrow_x - arrow_size - 15, x_arrow_y - 15, "x",
-            ft.TextStyle(size=12, weight=ft.FontWeight.BOLD)
+            ft.TextStyle(size=12, weight=ft.FontWeight.BOLD, color=text_color)
         ))
         shapes.append(cv.Text(
             y_arrow_x + 5, y_arrow_y - 10, "y",
-            ft.TextStyle(size=12, weight=ft.FontWeight.BOLD)
+            ft.TextStyle(size=12, weight=ft.FontWeight.BOLD, color=text_color)
         ))
         shapes.append(cv.Text(
             cx - 10, cy + 10, "0",
-            ft.TextStyle(size=10)
+            ft.TextStyle(size=10, color=text_color)
         ))
         
         # Draw tick marks and labels
-        tick_paint = ft.Paint(color=ft.Colors.BLACK, stroke_width=1)
+        tick_paint = ft.Paint(color=tick_pen_color, stroke_width=1)
         
         # Calculate dynamic label interval based on zoom level
         # At scale=50, use interval=2. At scale=5, use interval=20. Etc.
@@ -278,7 +291,7 @@ class CoordinateSystem(ft.Stack):
                     shapes.append(cv.Line(sx, cy - 5, sx, cy + 5, tick_paint))
                     shapes.append(cv.Text(
                         sx - 5, cy + 10, str(int(x)),
-                        ft.TextStyle(size=10)
+                        ft.TextStyle(size=10, color=text_color)
                     ))
         
         # Y-axis ticks and labels
@@ -292,7 +305,7 @@ class CoordinateSystem(ft.Stack):
                     shapes.append(cv.Line(cx - 5, sy, cx + 5, sy, tick_paint))
                     shapes.append(cv.Text(
                         cx - 20, sy + 5, str(int(y)),
-                        ft.TextStyle(size=10)
+                        ft.TextStyle(size=10, color=text_color)
                     ))
         
         # Draw the function curves (skip during fast panning for responsiveness)
@@ -306,13 +319,23 @@ class CoordinateSystem(ft.Stack):
                        canvas_width: float, canvas_height: float):
         """Draw all function curves"""
         # Color palette for multiple functions
-        colors = [
-            ft.Colors.RED,
-            ft.Colors.BLUE,
-            ft.Colors.GREEN,
-            ft.Colors.ORANGE,
-            ft.Colors.PURPLE,
-        ]
+        # Use brighter colors in dark mode
+        if self.state.dark_mode:
+            colors = [
+                ft.Colors.RED_400,
+                ft.Colors.BLUE_400,
+                ft.Colors.GREEN_400,
+                ft.Colors.ORANGE_400,
+                ft.Colors.PURPLE_400,
+            ]
+        else:
+            colors = [
+                ft.Colors.RED,
+                ft.Colors.BLUE,
+                ft.Colors.GREEN,
+                ft.Colors.ORANGE,
+                ft.Colors.PURPLE,
+            ]
         
         # Draw each expression
         for i, expr in enumerate(self.state.expressions):

@@ -117,16 +117,52 @@ class GraphingApp:
                 self.coordinate_system_ref.current.redraw()
                 self.page.update()
         
+        # Dark mode toggle
+        dark_mode_checkmark = ft.Icon(
+            ft.Icons.CHECK,
+            size=20,
+            color=ft.Colors.GREEN,
+            visible=False,  # Initially not in dark mode
+        )
+        
+        def on_dark_mode_toggle(e):
+            """Toggle dark mode"""
+            if self.coordinate_system_ref.current:
+                current_state = self.coordinate_system_ref.current.state.dark_mode
+                self.coordinate_system_ref.current.state.dark_mode = not current_state
+                dark_mode_checkmark.visible = not current_state  # Update checkmark visibility
+                
+                # Update page background
+                if self.coordinate_system_ref.current.state.dark_mode:
+                    self.page.bgcolor = ft.Colors.BLACK
+                else:
+                    self.page.bgcolor = ft.Colors.WHITE
+                
+                self.coordinate_system_ref.current.redraw()
+                self.page.update()
+        
         grid_menu_item = ft.PopupMenuItem(
             content=ft.Row(
                 controls=[
                     ft.Icon(ft.Icons.GRID_ON, size=20),
-                    ft.Text("Toggle Grid", expand=True),
+                    ft.Text("Minor Grid", expand=True),
                     checkmark_icon,
                 ],
                 spacing=10,
             ),
             on_click=on_grid_toggle_click,
+        )
+        
+        dark_mode_menu_item = ft.PopupMenuItem(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.DARK_MODE, size=20),
+                    ft.Text("Dark Mode", expand=True),
+                    dark_mode_checkmark,
+                ],
+                spacing=10,
+            ),
+            on_click=on_dark_mode_toggle,
         )
         
         return ft.AppBar(
@@ -140,6 +176,7 @@ class GraphingApp:
                 ft.PopupMenuButton(
                     items=[
                         grid_menu_item,
+                        dark_mode_menu_item,
                         ft.PopupMenuItem(),  # divider
                         ft.PopupMenuItem(
                             content="Reset View",

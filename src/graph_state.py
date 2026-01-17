@@ -15,6 +15,7 @@ class GraphState:
     expr: str = "x**2"
     expressions: List[str] = field(default_factory=list)  # Support multiple functions
     show_minor_grid: bool = True
+    dark_mode: bool = False  # Dark mode toggle
 
 
 class FunctionGraph:
