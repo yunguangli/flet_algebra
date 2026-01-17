@@ -13,6 +13,7 @@ class GraphState:
     offset_x: float = 0.0
     offset_y: float = 0.0
     expr: str = "x**2"
+    show_minor_grid: bool = True
 
 
 class FunctionGraph:

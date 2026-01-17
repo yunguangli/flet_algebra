@@ -18,6 +18,7 @@ class CoordinateSystem(ft.Stack):
         
         # Initialize controls
         self.init()
+        self._is_dragging = False
     
     def init(self):
         """Initialize the coordinate system"""
@@ -30,18 +31,20 @@ class CoordinateSystem(ft.Stack):
         # Store canvas reference for later updates
         self.canvas = chart_canvas
         
-        # Create gesture detector for pan/zoom
+        # Create gesture detector for pan/zoom - wrap the canvas in it
         gesture_detector = ft.GestureDetector(
+            content=chart_canvas,
             mouse_cursor=ft.MouseCursor.MOVE,
-            drag_interval=10,
+            drag_interval=1,
+            on_pan_start=self._handle_pan_start,
             on_pan_update=self._handle_pan_update,
+            on_pan_end=self._handle_pan_end,
             on_scroll=self._handle_scroll,
             expand=True,
         )
         
-        # Stack canvas and gesture detector
+        # Stack contains only the gesture detector (which wraps the canvas)
         self.controls = [
-            chart_canvas,
             gesture_detector,
         ]
         
@@ -61,11 +64,21 @@ class CoordinateSystem(ft.Stack):
         sy = (canvas_height / 2) + self.state.offset_y - (y * self.state.scale)
         return sx, sy
     
+    def _handle_pan_start(self, e: ft.DragStartEvent):
+        """Handle pan start - mark as dragging"""
+        self._is_dragging = True
+    
     def _handle_pan_update(self, e: ft.DragUpdateEvent):
-        """Handle pan (drag) updates"""
+        """Handle pan (drag) updates - fast update without function curve"""
         self.state.offset_x += e.local_delta.x
         self.state.offset_y += e.local_delta.y
-        self.redraw()
+        # During dragging, skip expensive function curve drawing for responsiveness
+        self.redraw(skip_function=True)
+    
+    def _handle_pan_end(self, e: ft.DragEndEvent):
+        """Handle pan end - do full redraw with function"""
+        self._is_dragging = False
+        self.redraw(skip_function=False)
     
     def _handle_scroll(self, e: ft.ScrollEvent):
         """Handle scroll for zoom"""
@@ -115,11 +128,15 @@ class CoordinateSystem(ft.Stack):
         self.state.expr = expr
         self.redraw()
     
-    def redraw(self):
-        """Redraw the entire canvas"""
+    def redraw(self, skip_function: bool = False):
+        """Redraw the entire canvas
+        
+        Args:
+            skip_function: If True, skip drawing the function curve for faster updates during panning
+        """
         if self.canvas:
             try:
-                self.canvas.shapes = self._draw_graph()
+                self.canvas.shapes = self._draw_graph(skip_function=skip_function)
                 self.canvas.update()
             except Exception as e:
                 # Control may not be fully added yet
@@ -128,43 +145,56 @@ class CoordinateSystem(ft.Stack):
                 else:
                     print(f"Redraw error: {e}")
     
-    def _draw_graph(self) -> List:
-        """Draw the complete graph with axes, grid, and function"""
+    def _draw_graph(self, skip_function: bool = False) -> List:
+        """Draw the complete graph with axes, grid, and function
+        
+        Args:
+            skip_function: If True, skip drawing the function curve for faster updates
+        """
         canvas_width = self._page.window.width
         canvas_height = self._page.window.height
         shapes = []
         
         # Draw grid lines
-        grid_pen = ft.Paint(color=ft.Colors.GREY_300, stroke_width=1)
-        minor_grid_pen = ft.Paint(color=ft.Colors.GREY_100, stroke_width=0.5)
+        grid_pen = ft.Paint(color=ft.Colors.GREY_400, stroke_width=1.5)
+        minor_grid_pen = ft.Paint(color=ft.Colors.GREY_200, stroke_width=0.8)
         
-        # Calculate visible range
+        # Calculate visible range in math coordinates
         visible_x_min = -(canvas_width / 2 - self.state.offset_x) / self.state.scale
         visible_x_max = (canvas_width / 2 + self.state.offset_x) / self.state.scale
         visible_y_min = -(canvas_height / 2 + self.state.offset_y) / self.state.scale
         visible_y_max = (canvas_height / 2 - self.state.offset_y) / self.state.scale
         
+        # Add padding to avoid edge artifacts
+        x_min = int(np.floor(visible_x_min)) - 1
+        x_max = int(np.ceil(visible_x_max)) + 1
+        y_min = int(np.floor(visible_y_min)) - 1
+        y_max = int(np.ceil(visible_y_max)) + 1
+        
         # Major grid lines (every 2 units)
-        for x in np.arange(-20, 21, 2):
+        for x in np.arange(x_min, x_max + 1, 2):
             sx, _ = self.to_screen(x, 0)
-            if 0 <= sx <= canvas_width:
+            if -10 <= sx <= canvas_width + 10:
                 shapes.append(cv.Line(sx, 0, sx, canvas_height, grid_pen))
         
-        for y in np.arange(-20, 21, 2):
+        for y in np.arange(y_min, y_max + 1, 2):
             _, sy = self.to_screen(0, y)
-            if 0 <= sy <= canvas_height:
+            if -10 <= sy <= canvas_height + 10:
                 shapes.append(cv.Line(0, sy, canvas_width, sy, grid_pen))
         
-        # Minor grid lines (every 1 unit)
-        for x in np.arange(-20, 21, 1):
-            sx, _ = self.to_screen(x, 0)
-            if 0 <= sx <= canvas_width and x % 2 != 0:
-                shapes.append(cv.Line(sx, 0, sx, canvas_height, minor_grid_pen))
-        
-        for y in np.arange(-20, 21, 1):
-            _, sy = self.to_screen(0, y)
-            if 0 <= sy <= canvas_height and y % 2 != 0:
-                shapes.append(cv.Line(0, sy, canvas_width, sy, minor_grid_pen))
+        # Minor grid lines (every 1 unit) - only if enabled
+        if self.state.show_minor_grid:
+            for x in np.arange(x_min, x_max + 1, 1):
+                if x % 2 != 0:  # Skip even numbers (already drawn as major grid)
+                    sx, _ = self.to_screen(x, 0)
+                    if -10 <= sx <= canvas_width + 10:
+                        shapes.append(cv.Line(sx, 0, sx, canvas_height, minor_grid_pen))
+            
+            for y in np.arange(y_min, y_max + 1, 1):
+                if y % 2 != 0:  # Skip even numbers (already drawn as major grid)
+                    _, sy = self.to_screen(0, y)
+                    if -10 <= sy <= canvas_height + 10:
+                        shapes.append(cv.Line(0, sy, canvas_width, sy, minor_grid_pen))
         
         # Draw axes
         axis_pen = ft.Paint(color=ft.Colors.BLACK, stroke_width=2)
@@ -175,13 +205,14 @@ class CoordinateSystem(ft.Stack):
         # Y-axis
         shapes.append(cv.Line(cx, 0, cx, canvas_height, axis_pen))
         
-        # Draw axis arrows
+        # Draw axis arrows (at canvas edges, so they move with the axes)
         arrow_size = 10
         arrow_paint = ft.Paint(color=ft.Colors.BLACK, stroke_width=2, 
                               style=ft.PaintingStyle.FILL)
         
-        # X-axis arrow (right)
-        x_arrow_x, x_arrow_y = self.to_screen(visible_x_max, 0)
+        # X-axis arrow (at right edge of canvas)
+        x_arrow_x = canvas_width - 10
+        x_arrow_y = cy
         shapes.append(cv.Path(
             [
                 cv.Path.MoveTo(x_arrow_x - arrow_size, x_arrow_y - arrow_size // 2),
@@ -191,8 +222,9 @@ class CoordinateSystem(ft.Stack):
             arrow_paint
         ))
         
-        # Y-axis arrow (top)
-        y_arrow_x, y_arrow_y = self.to_screen(0, visible_y_max)
+        # Y-axis arrow (at top edge of canvas)
+        y_arrow_x = cx
+        y_arrow_y = 2  # Even higher, closer to the top
         shapes.append(cv.Path(
             [
                 cv.Path.MoveTo(y_arrow_x - arrow_size // 2, y_arrow_y + arrow_size),
@@ -204,11 +236,11 @@ class CoordinateSystem(ft.Stack):
         
         # Draw axis labels
         shapes.append(cv.Text(
-            x_arrow_x - arrow_size, x_arrow_y - 15, "x",
+            x_arrow_x - arrow_size - 15, x_arrow_y - 15, "x",
             ft.TextStyle(size=12, weight=ft.FontWeight.BOLD)
         ))
         shapes.append(cv.Text(
-            y_arrow_x + 5, y_arrow_y + arrow_size, "y",
+            y_arrow_x + 5, y_arrow_y - 10, "y",
             ft.TextStyle(size=12, weight=ft.FontWeight.BOLD)
         ))
         shapes.append(cv.Text(
@@ -241,9 +273,10 @@ class CoordinateSystem(ft.Stack):
                         ft.TextStyle(size=10)
                     ))
         
-        # Draw the function curve
-        self._draw_function(shapes, visible_x_min, visible_x_max, 
-                           canvas_width, canvas_height)
+        # Draw the function curve (skip during fast panning for responsiveness)
+        if not skip_function:
+            self._draw_function(shapes, visible_x_min, visible_x_max, 
+                               canvas_width, canvas_height)
         
         return shapes
     
