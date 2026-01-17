@@ -13,7 +13,7 @@ class GraphState:
     offset_x: float = 0.0
     offset_y: float = 0.0
     expr: str = "x**2"
-    expressions: List[str] = field(default_factory=lambda: ["x**2"])  # Support multiple functions
+    expressions: List[str] = field(default_factory=list)  # Support multiple functions
     show_minor_grid: bool = True
 
 

@@ -212,9 +212,6 @@ class GraphingApp:
         coord_system = CoordinateSystem(self.page)
         self.coordinate_system_ref.current = coord_system
         
-        # Initialize with the default expression
-        coord_system.state.expressions = ["x**2"]
-        
         # Create expression input with ListView for multiple functions
         expr_field = ft.TextField(
             ref=self.expr_field_ref,
@@ -225,7 +222,7 @@ class GraphingApp:
         )
         
         def create_function_item(expr_text: str = ""):
-            """Create a function input row with remove (-) and submit (+) buttons"""
+            """Create a function input row with PopupMenuButton for +/- actions"""
             text_field = ft.TextField(
                 label="f(x) = ",
                 value=expr_text,
@@ -234,7 +231,6 @@ class GraphingApp:
             
             # Create the row first so we can reference it in the remove function
             item_row = None
-            submit_button = None
             
             def on_apply_function(e):
                 expr = text_field.value
@@ -260,30 +256,39 @@ class GraphingApp:
             
             def on_text_change(e):
                 """Enable/disable submit button based on text input"""
-                if submit_button:
-                    submit_button.disabled = not text_field.value
-                    self.page.update()
+                self.page.update()
             
             # Set on_submit to call same function as the button
             text_field.on_submit = on_apply_function
             text_field.on_change = on_text_change
             
-            submit_button = ft.IconButton(
-                ft.Icons.ADD,
-                icon_color=ft.Colors.GREEN,
-                on_click=on_apply_function,
-                disabled=not expr_text,  # Disable if no initial text
-            )
-            
             item_row = ft.Row(
                 controls=[
-                    ft.IconButton(
-                        ft.Icons.REMOVE,
-                        icon_color=ft.Colors.RED,
-                        on_click=on_remove_function,
-                    ),
                     text_field,
-                    submit_button,
+                    ft.PopupMenuButton(
+                        items=[
+                            ft.PopupMenuItem(
+                                content=ft.Row(
+                                    controls=[
+                                        ft.Icon(ft.Icons.ADD, size=16),
+                                        ft.Text("Submit"),
+                                    ],
+                                    spacing=5,
+                                ),
+                                on_click=on_apply_function,
+                            ),
+                            ft.PopupMenuItem(
+                                content=ft.Row(
+                                    controls=[
+                                        ft.Icon(ft.Icons.REMOVE, size=16),
+                                        ft.Text("Remove"),
+                                    ],
+                                    spacing=5,
+                                ),
+                                on_click=on_remove_function,
+                            ),
+                        ],
+                    ),
                 ],
                 spacing=5,
             )
