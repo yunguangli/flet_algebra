@@ -160,10 +160,12 @@ class CoordinateSystem(ft.Stack):
         minor_grid_pen = ft.Paint(color=ft.Colors.GREY_200, stroke_width=0.8)
         
         # Calculate visible range in math coordinates
-        visible_x_min = -(canvas_width / 2 - self.state.offset_x) / self.state.scale
-        visible_x_max = (canvas_width / 2 + self.state.offset_x) / self.state.scale
-        visible_y_min = -(canvas_height / 2 + self.state.offset_y) / self.state.scale
-        visible_y_max = (canvas_height / 2 - self.state.offset_y) / self.state.scale
+        # When offset_x > 0, we're panning right, so we see more negative x values
+        visible_x_min = -(canvas_width / 2 + self.state.offset_x) / self.state.scale
+        visible_x_max = (canvas_width / 2 - self.state.offset_x) / self.state.scale
+        # When offset_y > 0, we're panning down, so we see smaller y values (more negative)
+        visible_y_min = -(canvas_height / 2 - self.state.offset_y) / self.state.scale
+        visible_y_max = (canvas_height / 2 + self.state.offset_y) / self.state.scale
         
         # Add padding to avoid edge artifacts
         x_min = int(np.floor(visible_x_min)) - 1
@@ -251,22 +253,42 @@ class CoordinateSystem(ft.Stack):
         # Draw tick marks and labels
         tick_paint = ft.Paint(color=ft.Colors.BLACK, stroke_width=1)
         
-        # X-axis ticks
-        for x in np.arange(-20, 21, 2):
+        # Calculate dynamic label interval based on zoom level
+        # At scale=50, use interval=2. At scale=5, use interval=20. Etc.
+        # Label interval should be approximately 80-100 pixels apart on screen
+        target_label_spacing = 80  # pixels
+        label_interval = 2
+        while (label_interval * self.state.scale) < target_label_spacing:
+            # If labels are too close, increase interval
+            if label_interval == 2:
+                label_interval = 5
+            elif label_interval == 5:
+                label_interval = 10
+            else:
+                label_interval += 10
+        
+        # X-axis ticks and labels
+        x_min = int(np.floor(visible_x_min / label_interval) * label_interval)
+        x_max = int(np.ceil(visible_x_max / label_interval) * label_interval)
+        
+        for x in np.arange(x_min, x_max + 1, label_interval):
             if x != 0:
                 sx, sy = self.to_screen(x, 0)
-                if 0 <= sx <= canvas_width:
+                if -10 <= sx <= canvas_width + 10:
                     shapes.append(cv.Line(sx, cy - 5, sx, cy + 5, tick_paint))
                     shapes.append(cv.Text(
                         sx - 5, cy + 10, str(int(x)),
                         ft.TextStyle(size=10)
                     ))
         
-        # Y-axis ticks
-        for y in np.arange(-20, 21, 2):
+        # Y-axis ticks and labels
+        y_min = int(np.floor(visible_y_min / label_interval) * label_interval)
+        y_max = int(np.ceil(visible_y_max / label_interval) * label_interval)
+        
+        for y in np.arange(y_min, y_max + 1, label_interval):
             if y != 0:
                 sx, sy = self.to_screen(0, y)
-                if 0 <= sy <= canvas_height:
+                if -10 <= sy <= canvas_height + 10:
                     shapes.append(cv.Line(cx - 5, sy, cx + 5, sy, tick_paint))
                     shapes.append(cv.Text(
                         cx - 20, sy + 5, str(int(y)),
