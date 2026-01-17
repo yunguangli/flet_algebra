@@ -1,26 +1,53 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "flet-algrebra"
+name = "flet-algebra"
 version = "0.1.0"
-description = ""
+description = "A GeoGebra-like interactive algebra graphing calculator built with Flet"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 authors = [
-    { name = "Flet developer", email = "you@example.com" }
+    { name = "Algebra Developer", email = "developer@example.com" }
 ]
-dependencies = [
-  "flet>=0.80.2"
+keywords = ["flet", "graphing", "algebra", "calculator", "mathematics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
-[dependency-groups]
-dev = [
-  "flet[all]>=0.80.2",
+dependencies = [
+    "flet>=0.80.2",
+    "numpy>=1.24.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "flet[all]>=0.80.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/flet-algebra"
+Repository = "https://github.com/yourusername/flet-algebra.git"
+Issues = "https://github.com/yourusername/flet-algebra/issues"
 
 [tool.flet]
-org = "com.mycompany"
-product = "flet-algrebra"
-company = "Flet"
-copyright = "Copyright (C) 2026 by Flet"
+org = "com.example"
+product = "flet-algebra"
+company = "Algebra"
+copyright = "Copyright (C) 2026"
 
 [tool.flet.app]
 path = "src"
+
+[tool.setuptools]
+packages = ["src"]
