@@ -12,6 +12,8 @@ class GraphingApp:
         self.coordinate_system_ref = ft.Ref[CoordinateSystem]()
         self.expr_field_ref = ft.Ref[ft.TextField]()
         self.control_panel_ref = ft.Ref[ft.Container]()
+        self.bottom_appbar_ref = ft.Ref[ft.BottomAppBar]()
+        self.functions_list_ref = ft.Ref[ft.ListView]()
         self.drawer = None  # Store drawer reference
     
     def setup_page(self):
@@ -30,11 +32,13 @@ class GraphingApp:
         self.drawer = self._create_drawer()
         self.page.drawer = self.drawer  # Use page.drawer, not navigation_drawer
         
-        # Then create appbar
+        # Then create appbar and bottomappbar
         appbar = self._create_top_bar()
         main_content = self._create_controls_stack()
+        bottom_appbar = self._create_bottom_appbar()
         
         self.page.appbar = appbar
+        self.page.bottom_appbar = bottom_appbar
         self.page.add(main_content)
     
     def _create_drawer(self):
@@ -87,9 +91,43 @@ class GraphingApp:
         )
     
     def _create_top_bar(self):
-        """Create top app bar"""
+        """Create top app bar with popup menu for grid and reset"""
         async def on_menu_click(e):
             await self.page.show_drawer()
+        
+        def on_reset_click(e):
+            """Reset view from menu"""
+            self._reset_view()
+        
+        # Create grid toggle menu item with indicator
+        # Store the checkmark icon reference so we can update its visibility
+        checkmark_icon = ft.Icon(
+            ft.Icons.CHECK,
+            size=20,
+            color=ft.Colors.GREEN,
+            visible=True,  # Initially visible since show_minor_grid starts as True
+        )
+        
+        def on_grid_toggle_click(e):
+            """Toggle minor grid from menu"""
+            if self.coordinate_system_ref.current:
+                current_state = self.coordinate_system_ref.current.state.show_minor_grid
+                self.coordinate_system_ref.current.state.show_minor_grid = not current_state
+                checkmark_icon.visible = not current_state  # Update checkmark visibility
+                self.coordinate_system_ref.current.redraw()
+                self.page.update()
+        
+        grid_menu_item = ft.PopupMenuItem(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.GRID_ON, size=20),
+                    ft.Text("Toggle Grid", expand=True),
+                    checkmark_icon,
+                ],
+                spacing=10,
+            ),
+            on_click=on_grid_toggle_click,
+        )
         
         return ft.AppBar(
             title=ft.Text("Graphing Calculator", weight=ft.FontWeight.BOLD),
@@ -98,8 +136,74 @@ class GraphingApp:
                 ft.Icons.MENU,
                 on_click=on_menu_click,
             ),
+            actions=[
+                ft.PopupMenuButton(
+                    items=[
+                        grid_menu_item,
+                        ft.PopupMenuItem(),  # divider
+                        ft.PopupMenuItem(
+                            content="Reset View",
+                            icon=ft.Icons.REFRESH,
+                            on_click=on_reset_click,
+                        ),
+                    ]
+                ),
+            ],
             bgcolor=ft.Colors.BLUE_600,
             toolbar_height=60,
+        )
+    
+    def _create_bottom_appbar(self):
+        """Create bottom app bar with pan and zoom buttons (initially invisible)"""
+        def on_close_bottom_appbar(e):
+            if self.bottom_appbar_ref.current:
+                self.bottom_appbar_ref.current.visible = False
+                self.page.update()
+        
+        return ft.BottomAppBar(
+            ref=self.bottom_appbar_ref,
+            bgcolor=ft.Colors.BLUE_600,
+            visible=False,  # Initially invisible
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_AROUND,
+                controls=[
+                    ft.IconButton(
+                        ft.Icons.ARROW_BACK,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._pan_left(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.ARROW_UPWARD,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._pan_up(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.ARROW_DOWNWARD,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._pan_down(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.ARROW_FORWARD,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._pan_right(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.ADD,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._zoom_in(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.REMOVE,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=lambda e: self._zoom_out(),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.CLOSE,
+                        icon_color=ft.Colors.WHITE,
+                        on_click=on_close_bottom_appbar,
+                    ),
+                ],
+            ),
         )
     
     def _create_controls_stack(self):
@@ -108,7 +212,10 @@ class GraphingApp:
         coord_system = CoordinateSystem(self.page)
         self.coordinate_system_ref.current = coord_system
         
-        # Create expression input
+        # Initialize with the default expression
+        coord_system.state.expressions = ["x**2"]
+        
+        # Create expression input with ListView for multiple functions
         expr_field = ft.TextField(
             ref=self.expr_field_ref,
             label="f(x) = ",
@@ -117,8 +224,77 @@ class GraphingApp:
             on_change=self._on_expr_change,
         )
         
-        def on_apply_click(e):
-            self._on_expr_change(None)
+        def create_function_item(expr_text: str = ""):
+            """Create a function input row with remove (-) and submit (+) buttons"""
+            text_field = ft.TextField(
+                label="f(x) = ",
+                value=expr_text,
+                width=180,
+            )
+            
+            # Create the row first so we can reference it in the remove function
+            item_row = None
+            submit_button = None
+            
+            def on_apply_function(e):
+                expr = text_field.value
+                if expr and self.coordinate_system_ref.current:
+                    # Add to expressions list
+                    if expr not in self.coordinate_system_ref.current.state.expressions:
+                        self.coordinate_system_ref.current.state.expressions.append(expr)
+                    self.coordinate_system_ref.current.redraw()
+            
+            def on_remove_function(e):
+                expr = text_field.value
+                # Remove from expressions list
+                if expr and self.coordinate_system_ref.current:
+                    if expr in self.coordinate_system_ref.current.state.expressions:
+                        self.coordinate_system_ref.current.state.expressions.remove(expr)
+                    self.coordinate_system_ref.current.redraw()
+                
+                # Remove from ListView
+                if item_row and self.functions_list_ref.current:
+                    if item_row in self.functions_list_ref.current.controls:
+                        self.functions_list_ref.current.controls.remove(item_row)
+                        self.page.update()
+            
+            def on_text_change(e):
+                """Enable/disable submit button based on text input"""
+                if submit_button:
+                    submit_button.disabled = not text_field.value
+                    self.page.update()
+            
+            # Set on_submit to call same function as the button
+            text_field.on_submit = on_apply_function
+            text_field.on_change = on_text_change
+            
+            submit_button = ft.IconButton(
+                ft.Icons.ADD,
+                icon_color=ft.Colors.GREEN,
+                on_click=on_apply_function,
+                disabled=not expr_text,  # Disable if no initial text
+            )
+            
+            item_row = ft.Row(
+                controls=[
+                    ft.IconButton(
+                        ft.Icons.REMOVE,
+                        icon_color=ft.Colors.RED,
+                        on_click=on_remove_function,
+                    ),
+                    text_field,
+                    submit_button,
+                ],
+                spacing=5,
+            )
+            
+            return item_row
+        
+        def on_add_function(e):
+            """Add a new function input field"""
+            if self.functions_list_ref.current:
+                self.functions_list_ref.current.controls.append(create_function_item())
+                self.page.update()
         
         def on_close_click(e):
             if self.control_panel_ref.current:
@@ -131,6 +307,15 @@ class GraphingApp:
                 self.coordinate_system_ref.current.state.show_minor_grid = new_value
                 self.coordinate_system_ref.current.redraw()
                 self.page.update()
+        
+        # Create ListView for multiple functions
+        functions_list = ft.ListView(
+            ref=self.functions_list_ref,
+            controls=[],
+            spacing=10,
+            padding=10,
+            height=self.page.height,
+        )
         
         # Create control buttons
         pan_left_btn = ft.FloatingActionButton(
@@ -176,14 +361,14 @@ class GraphingApp:
             mini=True,
         )
         
-        # Create control panel (initially invisible)
+        # Create control panel (initially invisible) with ListView for functions
         control_panel = ft.Container(
             ref=self.control_panel_ref,
             content=ft.Column(
                 controls=[
                     ft.Row(
                         controls=[
-                            ft.Text("Controls", weight=ft.FontWeight.BOLD),
+                            ft.Text("Functions", weight=ft.FontWeight.BOLD),
                             ft.Container(expand=True),
                             ft.IconButton(
                                 ft.Icons.CLOSE,
@@ -193,32 +378,16 @@ class GraphingApp:
                         ],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
+                    ft.Container(height=5),
+
+                    ft.Button(
+                        "Add Function",
+                        icon=ft.Icons.ADD,
+                        on_click=on_add_function,
+                        width=230,
+                    ),
                     ft.Container(height=10),
-                    expr_field,
-                    ft.Button("Apply", on_click=on_apply_click),
-                    ft.Container(height=15),
-                    ft.Text("Grid", weight=ft.FontWeight.W_500),
-                    ft.Row(
-                        controls=[
-                            ft.Text("Minor Grid:", size=11),
-                            ft.Switch(value=True, on_change=on_grid_toggle),
-                        ],
-                        spacing=10,
-                    ),
-                    ft.Container(height=15),
-                    ft.Text("Pan", weight=ft.FontWeight.W_500),
-                    ft.Row(
-                        controls=[pan_left_btn, pan_up_btn, pan_down_btn, pan_right_btn],
-                        spacing=5,
-                    ),
-                    ft.Container(height=15),
-                    ft.Text("Zoom", weight=ft.FontWeight.W_500),
-                    ft.Row(
-                        controls=[zoom_in_btn, zoom_out_btn],
-                        spacing=5,
-                    ),
-                    ft.Container(height=15),
-                    reset_btn,
+                    functions_list,
                 ],
                 spacing=5,
             ),
@@ -230,6 +399,29 @@ class GraphingApp:
         )
         
         # Create main stack with left control panel and right coordinate system
+        def on_coordinate_long_press(e):
+            """Show bottom app bar on long press"""
+            if self.bottom_appbar_ref.current:
+                self.bottom_appbar_ref.current.visible = True
+                self.page.update()
+        
+        # Wrap coordinate system with gesture detector for long-press only
+        # The coordinate system itself handles pan/zoom events
+        coord_system_wrapper = ft.Stack(
+            expand=True,
+            controls=[
+                ft.Container(
+                    content=coord_system,
+                    expand=True,
+                    padding=10,
+                ),
+                ft.GestureDetector(
+                    on_long_press=on_coordinate_long_press,
+                    expand=True,
+                ),
+            ],
+        )
+        
         main_content = ft.Row(
             expand=True,
             controls=[
@@ -237,11 +429,7 @@ class GraphingApp:
                 control_panel,
                 ft.Container(width=10),  # Spacer
                 # Right side: Coordinate system
-                ft.Container(
-                    content=coord_system,
-                    expand=True,
-                    padding=10,
-                ),
+                coord_system_wrapper,
             ],
             vertical_alignment=ft.CrossAxisAlignment.START,
         )

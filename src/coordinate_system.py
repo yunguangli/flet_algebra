@@ -157,7 +157,7 @@ class CoordinateSystem(ft.Stack):
         
         # Draw grid lines
         grid_pen = ft.Paint(color=ft.Colors.GREY_400, stroke_width=1.5)
-        minor_grid_pen = ft.Paint(color=ft.Colors.GREY_200, stroke_width=0.8)
+        minor_grid_pen = ft.Paint(color=ft.Colors.GREY_300, stroke_width=1.2)
         
         # Calculate visible range in math coordinates
         # When offset_x > 0, we're panning right, so we see more negative x values
@@ -295,26 +295,45 @@ class CoordinateSystem(ft.Stack):
                         ft.TextStyle(size=10)
                     ))
         
-        # Draw the function curve (skip during fast panning for responsiveness)
+        # Draw the function curves (skip during fast panning for responsiveness)
         if not skip_function:
-            self._draw_function(shapes, visible_x_min, visible_x_max, 
-                               canvas_width, canvas_height)
+            self._draw_functions(shapes, visible_x_min, visible_x_max, 
+                                canvas_width, canvas_height)
         
         return shapes
     
-    def _draw_function(self, shapes: List, x_min: float, x_max: float, 
-                      canvas_width: float, canvas_height: float):
-        """Draw the function curve"""
+    def _draw_functions(self, shapes: List, x_min: float, x_max: float, 
+                       canvas_width: float, canvas_height: float):
+        """Draw all function curves"""
+        # Color palette for multiple functions
+        colors = [
+            ft.Colors.RED,
+            ft.Colors.BLUE,
+            ft.Colors.GREEN,
+            ft.Colors.ORANGE,
+            ft.Colors.PURPLE,
+        ]
+        
+        # Draw each expression
+        for i, expr in enumerate(self.state.expressions):
+            color = colors[i % len(colors)]
+            self._draw_function(shapes, expr, x_min, x_max, 
+                              canvas_width, canvas_height, color)
+    
+    def _draw_function(self, shapes: List, expr: str, x_min: float, x_max: float, 
+                      canvas_width: float, canvas_height: float, 
+                      color: str = ft.Colors.RED):
+        """Draw a single function curve"""
         try:
             curve_paint = ft.Paint(
-                color=ft.Colors.RED,
+                color=color,
                 stroke_width=3,
                 style=ft.PaintingStyle.STROKE
             )
             
             # Sample points
             x_vals = np.linspace(x_min, x_max, 400)
-            y_vals = FunctionGraph.evaluate(self.state.expr, x_vals)
+            y_vals = FunctionGraph.evaluate(expr, x_vals)
             
             # Create and add path
             path_elements = FunctionGraph.create_path(

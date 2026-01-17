@@ -2,7 +2,7 @@
 
 import numpy as np
 import flet.canvas as cv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 
@@ -13,6 +13,7 @@ class GraphState:
     offset_x: float = 0.0
     offset_y: float = 0.0
     expr: str = "x**2"
+    expressions: List[str] = field(default_factory=lambda: ["x**2"])  # Support multiple functions
     show_minor_grid: bool = True
 
 
