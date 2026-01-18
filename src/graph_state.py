@@ -9,7 +9,11 @@ from typing import List
 @dataclass
 class GraphState:
     """State management for the graph"""
-    scale: float = 50.0
+    # Default scale adjusted to fit x: -25 to 25, y: -25 to 25
+    # Scale of 12 means 12 pixels per unit
+    # With page width 1200, x range -25 to 25 (50 units) = 600 pixels
+    # With page height 800, y range -25 to 25 (50 units) = 600 pixels
+    scale: float = 12.0
     offset_x: float = 0.0
     offset_y: float = 0.0
     expr: str = "x**2"

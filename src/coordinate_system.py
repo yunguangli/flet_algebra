@@ -58,10 +58,11 @@ class CoordinateSystem(ft.Stack):
     
     def to_screen(self, x: float, y: float) -> tuple:
         """Convert mathematical coordinates to screen coordinates"""
-        canvas_width = self._page.window.width
-        canvas_height = self._page.window.height
-        sx = (canvas_width / 2) + self.state.offset_x + (x * self.state.scale)
-        sy = (canvas_height / 2) + self.state.offset_y - (y * self.state.scale)
+        # Use page dimensions for centering (not canvas dimensions)
+        page_width = self._page.width if self._page.width else self._page.window.width
+        page_height = self._page.height if self._page.height else self._page.window.height
+        sx = (page_width / 2) + self.state.offset_x + (x * self.state.scale)
+        sy = (page_height / 2) + self.state.offset_y - (y * self.state.scale)
         return sx, sy
     
     def _handle_pan_start(self, e: ft.DragStartEvent):
@@ -118,7 +119,7 @@ class CoordinateSystem(ft.Stack):
     
     def reset_view(self):
         """Reset view to default"""
-        self.state.scale = 50.0
+        self.state.scale = 12.0
         self.state.offset_x = 0.0
         self.state.offset_y = 0.0
         self.redraw()
@@ -186,13 +187,17 @@ class CoordinateSystem(ft.Stack):
         y_min = int(np.floor(visible_y_min)) - 1
         y_max = int(np.ceil(visible_y_max)) + 1
         
-        # Major grid lines (every 2 units)
-        for x in np.arange(x_min, x_max + 1, 2):
+        # Major grid lines (every 2 units) - always on whole numbers
+        # Ensure we start from an even number for major grid lines
+        x_min_major = x_min if x_min % 2 == 0 else x_min + 1
+        y_min_major = y_min if y_min % 2 == 0 else y_min + 1
+        
+        for x in np.arange(x_min_major, x_max + 1, 2):
             sx, _ = self.to_screen(x, 0)
             if -10 <= sx <= canvas_width + 10:
                 shapes.append(cv.Line(sx, 0, sx, canvas_height, grid_pen))
         
-        for y in np.arange(y_min, y_max + 1, 2):
+        for y in np.arange(y_min_major, y_max + 1, 2):
             _, sy = self.to_screen(0, y)
             if -10 <= sy <= canvas_height + 10:
                 shapes.append(cv.Line(0, sy, canvas_width, sy, grid_pen))
@@ -280,7 +285,7 @@ class CoordinateSystem(ft.Stack):
             else:
                 label_interval += 10
         
-        # X-axis ticks and labels
+        # X-axis ticks and labels - ensure alignment with grid lines
         x_min = int(np.floor(visible_x_min / label_interval) * label_interval)
         x_max = int(np.ceil(visible_x_max / label_interval) * label_interval)
         
@@ -294,7 +299,7 @@ class CoordinateSystem(ft.Stack):
                         ft.TextStyle(size=10, color=text_color)
                     ))
         
-        # Y-axis ticks and labels
+        # Y-axis ticks and labels - ensure alignment with grid lines
         y_min = int(np.floor(visible_y_min / label_interval) * label_interval)
         y_max = int(np.ceil(visible_y_max / label_interval) * label_interval)
         
